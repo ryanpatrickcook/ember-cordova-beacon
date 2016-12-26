@@ -46,7 +46,10 @@
     "beacon"
   ],
   "dependencies": {
-    "ember-cli-babel": "^5.1.6"
+    "ember-cli-babel": "^5.1.6",
+    "ember-cli-version-checker": "^1.1.6",
+    "lodash": "^4.17.2",
+    "rsvp": "^3.3.3"
   },
   "ember-addon": {
     "configPath": "tests/dummy/config"

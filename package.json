@@ -1,16 +1,22 @@
 {
   "name": "ember-cordova-beacon",
   "version": "0.0.0",
-  "description": "The default blueprint for ember-cli addons.",
+  "description": "Range / Monitor beacons for ember cordova apps",
   "keywords": [
     "ember-addon",
+    "ember cordova",
     "ember-cordova",
     "cordova",
     "phonegap",
-    "beacon"
+    "beacon",
+    "ibeacon",
+    "ember-cordova-beacon"
   ],
   "license": "MIT",
-  "author": "",
+  "author": {
+    "name": "Ryan Cook",
+    "email": "ryanpatrickcook@gmail.com"
+  },
   "directories": {
     "doc": "doc",
     "test": "tests"

@@ -33,11 +33,27 @@ export default Service.extend(Evented, {
 
   setup() {
     this._delegate.didDetermineStateForRegion = function(pluginResult) {
-      this.trigger('didDetermineStateForRegion', pluginResult);
+      let { uuid, major, minor } = pluginResult.region;
+      let beacon = this._selectBeacon(uuid, major, minor);
+      this.trigger('didDetermineStateForRegion', beacon, pluginResult);
     }.bind(this);
 
     this._delegate.didStartMonitoringForRegion = function(pluginResult) {
-      this.trigger('didStartMonitoringForRegion', pluginResult);
+      let { uuid, major, minor } = pluginResult.region;
+      let beacon = this._selectBeacon(uuid, major, minor);
+      this.trigger('didStartMonitoringForRegion', beacon, pluginResult);
+    }.bind(this);
+
+    this._delegate.didEnterRegion = function(pluginResult) {
+      let { uuid, major, minor } = pluginResult.region;
+      let beacon = this._selectBeacon(uuid, major, minor);
+      this.trigger('didEnterRegion', beacon, pluginResult);
+    }.bind(this);
+
+    this._delegate.didExitRegion = function(pluginResult) {
+      let { uuid, major, minor } = pluginResult.region;
+      let beacon = this._selectBeacon(uuid, major, minor);
+      this.trigger('didExitRegion', beacon, pluginResult);
     }.bind(this);
 
     this._delegate.didRangeBeaconsInRegion = function(pluginResult) {
@@ -54,32 +70,78 @@ export default Service.extend(Evented, {
     this._locationManager.requestWhenInUseAuthorization();
   },
 
-  startRangingBeacon(identifier, uuid, major, minor) {
-    this.locationManager().then(lm => {
+  getMonitoredRegions() {
+    return this.locationManager().then(lm => {
+      return lm.getMonitoredRegions();
+    });
+  },
+
+  startMonitoringBeacon(identifier, uuid, major, minor) {
+    return this.locationManager().then(lm => {
       let beacon = this._addBeacon(identifier, uuid, major, minor);
-      lm.startRangingBeaconsInRegion(beacon.region)
-        .fail(function(e) { console.error(e); })
-        .done();
+      beacon = beacon || {};
+      return lm.startMonitoringForRegion(beacon.region).then(() => {
+        return beacon;
+      });
+    }.bind(this));
+  },
+
+  stopMonitoringBeacon(uuid, major, minor) {
+    return this.locationManager().then(lm => {
+      let beacon = this._selectBeacon(uuid, major, minor);
+      beacon = beacon || {};
+      return lm.stopMonitoringForRegion(beacon.region).then(() => {
+        return beacon;
+      });
+    }.bind(this));
+  },
+
+  stopMonitoringBeacons(beacons) {
+    var beaconsToStop = isPresent(beacons) ? beacons : this.get('beacons');
+
+    return this.locationManager().then(lm => {
+      let promises = A();
+      beaconsToStop.forEach(beacon => {
+        let { uuid, major, minor } = beacon;
+        promises.pushObject(this.stopMonitoringBeacon(uuid, major, minor));
+      });
+
+      return Promise.all(promises);
+    });
+  },
+
+  startRangingBeacon(identifier, uuid, major, minor) {
+    return this.locationManager().then(lm => {
+      let beacon = this._addBeacon(identifier, uuid, major, minor);
+      beacon = beacon || {};
+      return lm.startRangingBeaconsInRegion(beacon.region).then(() => {
+        return beacon;
+      });
+    }.bind(this));
+  },
+
+  stopRangingBeacon(uuid, major, minor) {
+    return this.locationManager().then(lm => {
+      let beacon = this._selectBeacon(uuid, major, minor);
+      beacon = beacon || {};
+      return lm.stopRangingBeaconsInRegion(beacon.region).then(() => {
+        return beacon;
+      });
     }.bind(this));
   },
 
   stopRangingBeacons(beacons) {
-    var stopBeacons = isPresent(beacons) ? beacons : this.get('beacons');
+    var beaconsToStop = isPresent(beacons) ? beacons : this.get('beacons');
 
-    this.locationManager().then(lm => {
-      stopBeacons.forEach(beacon => {
-        lm.stopRangingBeaconsInRegion(beacon.region)
-          .fail(function(e) { console.error(e); })
-          .done();
+    return this.locationManager().then(lm => {
+      let promises = A();
+      beaconsToStop.forEach(beacon => {
+        let { uuid, major, minor } = beacon;
+        promises.pushObject(this.stopRangingBeacon(uuid, major, minor));
       });
-    });
-  },
 
-  stopRangingBeacon(uuid, major, minor) {
-    this.locationManager().then(() => {
-      let existingBeacons = this._selectBeacons(uuid, major, minor);
-      this.stopRangingBeacons(existingBeacons);
-    }.bind(this));
+      return Promise.all(promises);
+    });
   },
 
   getRange(txCalibratedPower, rssi) {
@@ -90,26 +152,27 @@ export default Service.extend(Evented, {
   },
 
   getProximity(range) {
-    var name = 'Unknown';
+    var name = 'unknown';
     if (range < 3) {
-      name = 'Immediate';
+      name = 'immediate';
     }
     else if (range < 10) {
-      name = 'Near';
+      name = 'near';
     }
     else if (range < 30) {
-      name = 'Far';
+      name = 'far';
     }
     return name;
   },
 
   _addBeacon(identifier, uuid, major, minor) {
-    let existingBeacons = this._selectBeacons(uuid, major, minor);
-    if (existingBeacons.length) {
-      return existingBeacons.get('firstObject');
+    let currentBeacon = this._selectBeacon(uuid, major, minor);
+    if (currentBeacon) {
+      return currentBeacon;
     }
 
     let beaconRegion = new this._locationManager.BeaconRegion(identifier, uuid, major, minor);
+
     let beacon = Ember.Object.create({
       identifier: identifier,
       uuid: uuid,
@@ -150,6 +213,11 @@ export default Service.extend(Evented, {
     return this.get('beacons').filter(item => {
       return (uuid === item.uuid) && (major === item.major) && (minor === item.minor);
     });
+  },
+
+  _selectBeacon(uuid, major, minor) {
+    let existingBeacons = this._selectBeacons(uuid, major, minor);
+    return existingBeacons.get('firstObject');
   },
 
   _appendToDeviceLog(message) {

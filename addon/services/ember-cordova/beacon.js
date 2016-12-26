@@ -220,13 +220,13 @@ export default Service.extend(Evented, {
     return existingBeacons.get('firstObject');
   },
 
-  _appendToDeviceLog(message) {
+  appendToDeviceLog(message) {
     this.locationManager().then(lm => {
       lm.appendToDeviceLog(message);
     }.bind(this));
   },
 
-  _logToDom(message) {
+  logToDom(message) {
     var e = document.createElement('label');
     e.innerText = message;
 

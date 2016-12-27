@@ -76,11 +76,20 @@ export default Service.extend(Evented, {
     });
   },
 
+  rangingBeacons: Ember.computed('beacons.@each.isRanging', function() {
+    return this.get('beacons').filterBy('isRanging', true);
+  }),
+
+  monitoringBeacons: Ember.computed('beacons.@each.isMonitoring', function() {
+    return this.get('beacons').filterBy('isMonitoring', true);
+  }),
+
   startMonitoringBeacon(identifier, uuid, major, minor) {
     return this.locationManager().then(lm => {
       let beacon = this._addBeacon(identifier, uuid, major, minor);
       beacon = beacon || {};
       return lm.startMonitoringForRegion(beacon.region).then(() => {
+        beacon.set('isMonitoring', true);
         return beacon;
       });
     }.bind(this));
@@ -91,6 +100,7 @@ export default Service.extend(Evented, {
       let beacon = this._selectBeacon(uuid, major, minor);
       beacon = beacon || {};
       return lm.stopMonitoringForRegion(beacon.region).then(() => {
+        beacon.set('isMonitoring', false);
         return beacon;
       });
     }.bind(this));
@@ -99,7 +109,7 @@ export default Service.extend(Evented, {
   stopMonitoringBeacons(beacons) {
     var beaconsToStop = isPresent(beacons) ? beacons : this.get('beacons');
 
-    return this.locationManager().then(lm => {
+    return this.locationManager().then(() => {
       let promises = A();
       beaconsToStop.forEach(beacon => {
         let { uuid, major, minor } = beacon;
@@ -115,6 +125,7 @@ export default Service.extend(Evented, {
       let beacon = this._addBeacon(identifier, uuid, major, minor);
       beacon = beacon || {};
       return lm.startRangingBeaconsInRegion(beacon.region).then(() => {
+        beacon.set('isRanging', true);
         return beacon;
       });
     }.bind(this));
@@ -125,6 +136,7 @@ export default Service.extend(Evented, {
       let beacon = this._selectBeacon(uuid, major, minor);
       beacon = beacon || {};
       return lm.stopRangingBeaconsInRegion(beacon.region).then(() => {
+        beacon.set('isRanging', false);
         return beacon;
       });
     }.bind(this));
@@ -133,7 +145,7 @@ export default Service.extend(Evented, {
   stopRangingBeacons(beacons) {
     var beaconsToStop = isPresent(beacons) ? beacons : this.get('beacons');
 
-    return this.locationManager().then(lm => {
+    return this.locationManager().then(() => {
       let promises = A();
       beaconsToStop.forEach(beacon => {
         let { uuid, major, minor } = beacon;
@@ -217,7 +229,7 @@ export default Service.extend(Evented, {
 
   _selectBeacon(uuid, major, minor) {
     let existingBeacons = this._selectBeacons(uuid, major, minor);
-    return existingBeacons.get('firstObject');
+    return A(existingBeacons).get('firstObject');
   },
 
   appendToDeviceLog(message) {
